@@ -4,26 +4,30 @@ import re
 import requests
 from bs4 import BeautifulSoup
 
+
 class User:
     def __init__(self, username: str) -> None:
         if not re.match("^[A-Za-z0-9_]*$", username):
             raise Exception("Invalid username")
 
-        self.username = username.lower()
+        #self.username = username.lower()
+        self.username = username
 
         page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/")
-        
+
         self.user_watchlist()
         self.user_favorites(page)
         self.user_stats(page)
-    
+        self.user_username()
+
     def __str__(self):
         return self.jsonify()
 
     def jsonify(self) -> str:
-        return json.dumps(self, indent=4,cls=Encoder)
+        return json.dumps(self, indent=4, cls=Encoder)
 
     def get_parsed_page(self, url: str) -> None:
+
         # This fixes a blocked by cloudflare error i've encountered
         headers = {
             "referer": "https://letterboxd.com",
@@ -32,7 +36,7 @@ class User:
 
         return BeautifulSoup(requests.get(url, headers=headers).text, "lxml")
 
-    def user_favorites(self, page: None) -> list:        
+    def user_favorites(self, page: None) -> list:
         data = page.find("section", {"id": ["favourites"], }).findChildren("div")
         names = []
 
@@ -40,7 +44,7 @@ class User:
             img = div.find("img")
             movie_url = img.parent['data-film-slug']
             names.append((img['alt'], movie_url))
-            
+
         self.favorites = names
 
     def user_stats(self, page: None) -> dict:
@@ -60,19 +64,45 @@ class User:
     def user_watchlist(self) -> str:
         page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/watchlist/")
 
-        data = page.find("span", {"class": ["watchlist-count"], })
+        # data = page.find("span", {"class": ["watchlist-count"], })
+        data = page.find("span", {"class": ["js-watchlist-count"], })
         try:
-            ret = data.text.split('\xa0')[0] #remove 'films' from '76 films'
+            ret = data.text.split('\xa0')[0]  # remove 'films' from '76 films'
         except:
             raise Exception("No user found")
 
         self.watchlist_length = ret
 
+    def user_username(self) -> str:
+        page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/")
+
+        data = page.find("h1", {"class": ["title-1"], })
+        try:
+            ret = data.text
+        except:
+            raise Exception("No username found on page")
+
+        self.username = ret
+
+
 def user_films_watched(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
 
-    #returns all movies
+    # returns all movies seen
+    return _list_films(user, "https://letterboxd.com/" + user.username + "/films/page/")
+
+
+def user_films_on_watchlist(user: User) -> list:
+    if type(user) != User:
+        raise Exception("Improper parameter")
+
+    # returns all movies on watchlist
+    return _list_films(user, "https://letterboxd.com/" + user.username + "/watchlist/page/")
+
+
+def _list_films(user: User, page_base: str) -> list:
+    # returns all movies
     prev = count = 0
     curr = 1
     movie_list = []
@@ -80,7 +110,7 @@ def user_films_watched(user: User) -> list:
     while prev != curr:
         count += 1
         prev = len(movie_list)
-        page = user.get_parsed_page("https://letterboxd.com/" + user.username + "/films/page/" + str(count) + "/")
+        page = user.get_parsed_page(page_base + str(count) + "/")
 
         img = page.find_all("img", {"class": ["image"], })
 
@@ -89,14 +119,14 @@ def user_films_watched(user: User) -> list:
             movie_list.append((item['alt'], movie_url))
 
         curr = len(movie_list)
-            
+
     return movie_list
 
 def user_following(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
 
-    #returns the first page of following
+    # returns the first page of following
     page = user.get_parsed_page("https://letterboxd.com/" + user.username + "/following/")
     data = page.find_all("img", attrs={'height': '40'})
 
@@ -107,11 +137,12 @@ def user_following(user: User) -> list:
 
     return ret
 
+
 def user_followers(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
 
-    #returns the first page of followers
+    # returns the first page of followers
     page = user.get_parsed_page("https://letterboxd.com/" + user.username + "/followers/")
     data = page.find_all("img", attrs={'height': '40'})
 
@@ -121,7 +152,8 @@ def user_followers(user: User) -> list:
         ret.append(person['alt'])
 
     return ret
-            
+
+
 def user_genre_info(user: User) -> dict:
     if type(user) != User:
         raise Exception("Improper parameter")
@@ -136,10 +168,11 @@ def user_genre_info(user: User) -> dict:
         data = page.find("span", {"class": ["replace-if-you"], })
         data = data.next_sibling
         ret[genre] = [int(s) for s in data.split() if s.isdigit()][0]
-        
+
     return ret
 
-#gives reviews that the user selected has made
+
+# gives reviews that the user selected has made
 def user_reviews(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
@@ -152,14 +185,15 @@ def user_reviews(user: User) -> list:
     for item in data:
         curr = {}
 
-        curr['movie'] = item.find("a").text #movie title
-        curr['rating'] = item.find("span", {"class": ["rating"], }).text #movie rating
-        curr['date'] = item.find("span", {"class": ["_nobr"], }).text #rating date
-        curr['review'] = item.find("div", {"class": ["body-text"], }).findChildren()[0].text #review
+        curr['movie'] = item.find("a").text  # movie title
+        curr['rating'] = item.find("span", {"class": ["rating"], }).text  # movie rating
+        curr['date'] = item.find("span", {"class": ["_nobr"], }).text  # rating date
+        curr['review'] = item.find("div", {"class": ["body-text"], }).findChildren()[0].text  # review
 
         ret.append(curr)
 
     return ret
+
 
 def user_diary_page(user: User, page) -> list:
     '''Returns the user's diary for a specific page'''
@@ -168,7 +202,7 @@ def user_diary_page(user: User, page) -> list:
         raise Exception("Improper parameter")
 
     page = user.get_parsed_page(
-        "https://letterboxd.com/" + user.username + "/films/diary/page/"+str(page)+"/")
+        "https://letterboxd.com/" + user.username + "/films/diary/page/" + str(page) + "/")
     ret = []
 
     data = page.find_all("tr", {"class": ["diary-entry-row"], })
@@ -177,7 +211,7 @@ def user_diary_page(user: User, page) -> list:
         curr = {}
 
         curr['movie'] = item.find("h3").text  # movie title
-        curr['movie_id'] = item.find("h3").find('a')['href'].split('/')[3] # movie id
+        curr['movie_id'] = item.find("h3").find('a')['href'].split('/')[3]  # movie id
         curr['rating'] = item.find(
             "span", {"class": ["rating"], }).text.strip()  # movie rating
         day = item.find(
@@ -197,6 +231,7 @@ def user_diary_page(user: User, page) -> list:
 
     return ret
 
+
 def user_diary(user: User) -> list:
     '''Returns a list of dictionaries with the user's diary'''
 
@@ -209,21 +244,23 @@ def user_diary(user: User) -> list:
         print(max_page)
         ret = []
 
-        for i in range(1, int(max_page)+1):
+        for i in range(1, int(max_page) + 1):
             page_result = user_diary_page(user, i)
             ret.extend(page_result)
 
     except IndexError:
         print('No diary found')
-        ret =[]
+        ret = []
 
     return ret
+
 
 class Encoder(JSONEncoder):
     def default(self, o):
         return o.__dict__
 
+
 if __name__ == "__main__":
     nick = User("nmcassA")
-    #print(nick)
+    # print(nick)
     print(user_films_watched(nick))
