@@ -26,7 +26,7 @@ class User:
     def jsonify(self) -> str:
         return json.dumps(self, indent=4, cls=Encoder)
 
-    def get_parsed_page(self, url: str) -> None:
+    def get_parsed_page(self, url: str) -> BeautifulSoup:
 
         # This fixes a blocked by cloudflare error i've encountered
         headers = {
@@ -76,9 +76,9 @@ class User:
     def user_username(self) -> str:
         page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/")
 
-        data = page.find("h1", {"class": ["title-1"], })
+        data = page.find("section", {"id": ["profile-header"], })
         try:
-            ret = data.text
+            ret = data['data-person']
         except:
             raise Exception("No username found on page")
 
