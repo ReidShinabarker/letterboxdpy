@@ -93,6 +93,14 @@ def user_films_watched(user: User) -> list:
     return _list_films(user, "https://letterboxd.com/" + user.username + "/films/page/")
 
 
+def user_films_liked(user: User) -> list:
+    if type(user) != User:
+        raise Exception("Improper parameter")
+
+    # returns all movies seen
+    return _list_films(user, "https://letterboxd.com/" + user.username + "/likes/films/page/")
+
+
 def user_films_on_watchlist(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
