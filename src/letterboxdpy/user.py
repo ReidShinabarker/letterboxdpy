@@ -10,7 +10,6 @@ class User:
         if not re.match("^[A-Za-z0-9_]*$", username):
             raise Exception("Invalid username")
 
-        #self.username = username.lower()
         self.username = username
 
         page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/")
@@ -76,9 +75,9 @@ class User:
     def user_username(self) -> str:
         page = self.get_parsed_page("https://letterboxd.com/" + self.username + "/")
 
-        data = page.find("section", {"id": ["profile-header"], })
+        data = page.find("span", {"class": ["displayname tooltip"], })
         try:
-            ret = data['data-person']
+            ret = data['title']
         except:
             raise Exception("No username found on page")
 
@@ -130,18 +129,19 @@ def _list_films(user: User, page_base: str) -> list:
 
     return movie_list
 
+
 def user_following(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
 
     # returns the first page of following
     page = user.get_parsed_page("https://letterboxd.com/" + user.username + "/following/")
-    data = page.find_all("img", attrs={'height': '40'})
+    data = page.find_all("a", attrs={'class': 'avatar -a40'})
 
     ret = []
 
     for person in data:
-        ret.append(person['alt'])
+        ret.append(person['href'].strip('/'))
 
     return ret
 
@@ -152,14 +152,21 @@ def user_followers(user: User) -> list:
 
     # returns the first page of followers
     page = user.get_parsed_page("https://letterboxd.com/" + user.username + "/followers/")
-    data = page.find_all("img", attrs={'height': '40'})
+    data = page.find_all("a", attrs={'class': 'avatar -a40'})
 
     ret = []
 
     for person in data:
-        ret.append(person['alt'])
+        ret.append(person['href'].strip('/'))
 
     return ret
+
+
+def user_mutuals(user: User) -> list:
+    if type(user) != User:
+        raise Exception("Improper parameter")
+
+    return list(set(user_following(user)).intersection(user_followers(user)))
 
 
 def user_genre_info(user: User) -> dict:
