@@ -166,6 +166,7 @@ def user_mutuals(user: User) -> list:
     if type(user) != User:
         raise Exception("Improper parameter")
 
+    # This is only accurate if the user has <=20 followers and <=20 following
     return list(set(user_following(user)).intersection(user_followers(user)))
 
 

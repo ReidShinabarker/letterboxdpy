@@ -23,6 +23,7 @@ class Movie:
         self.movie_rating(page)
         self.movie_year(page)
         self.movie_genre(page)
+        self.movie_runtime(page)
 
     def __str__(self):
         return self.jsonify()
@@ -95,6 +96,15 @@ class Movie:
                 res.append(item.text)
 
         self.genres = res
+
+    def movie_runtime(self, page: None) -> str:
+        try:
+            data = page.find_all("p", attrs={'class': 'text-link text-footer'})
+            data = str(data[0]).split()
+            self.runtime = data[3]
+        except:
+            self.runtime = "None found"
+
 
 def movie_popular_reviews(movie: Movie) -> dict:
     if type(movie) != Movie:
